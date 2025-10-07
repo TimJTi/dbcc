@@ -8,6 +8,7 @@
 #include <assert.h>
 #include <time.h>
 
+#if 0 /* not currently used */
 static int print_escaped(FILE *o, const char *string)
 {
 	assert(o);
@@ -29,6 +30,7 @@ static int print_escaped(FILE *o, const char *string)
 	}
 	return 0;
 }
+#endif
 
 static int indent(FILE *o, unsigned depth)
 {
@@ -67,6 +69,32 @@ warn:
 	return -1;
 }
 
+static int valtable2json(signal_t *sig, FILE *o, unsigned depth)
+{
+	assert(sig);
+	assert(o);
+
+	val_list_t *list = sig->val_list;
+	indent(o, depth);
+	fprintf(o, "\"values\" : {");
+	if (list != NULL) {
+		fprintf(o, "\n");
+		for (size_t j = 0; j < list->val_list_item_count; j++) {
+			val_list_item_t *item = list->val_list_items[j];
+			indent(o, depth+1);
+			int r = fprintf(o, "\"%u\" : \"%s\"", item->value, item->name);
+			if (r < 0)
+				error("output failed");
+			if ((list->val_list_item_count) && (j < list->val_list_item_count - 1))
+				fprintf(o, ",");
+			fprintf(o, "\n");
+		}
+		indent(o, depth);
+	}
+	fprintf(o, "}\n");
+	return 0;
+}
+
 static int signal2json(signal_t *sig, FILE *o, unsigned depth, int multiplexed, int selector, int is_value)
 {
 	assert(sig);
@@ -86,12 +114,9 @@ static int signal2json(signal_t *sig, FILE *o, unsigned depth, int multiplexed, 
 	pfield(o, depth+1, false, INT,    "floating",  "%u", sig->is_floating ? sig->sigval : 0);
 	if (multiplexed)
 		pfield(o, depth+1, false, STRING, "selector",      "%u", selector);
-
-	indent(o, depth+1);
-	fprintf(o, "\"units\" : \"");
-	print_escaped(o, sig->units);
-	fprintf(o, "\"\n");
-
+	pfield(o, depth+1, false, STRING, "units",      "%s", sig->units);
+	if (valtable2json(sig, o, 5) < 0)
+		return -1;
 	indent(o, depth);
 	if (fprintf(o, "}") < 0)
 		return -1;
